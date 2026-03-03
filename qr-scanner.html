@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>9a Poblenou · Scanner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;}
+h1{font-size:20px;margin-bottom:20px;color:#fb923c;}
+#reader{width:100%;max-width:400px;border-radius:12px;overflow:hidden;}
+#result{width:100%;max-width:400px;margin-top:20px;padding:20px;border-radius:12px;text-align:center;display:none;}
+#result.granted{background:#15803d;}
+#result.denied{background:#dc2626;}
+#result .name{font-size:24px;font-weight:700;margin-bottom:8px;}
+#result .status{font-size:14px;opacity:.8;}
+#result .reason{font-size:13px;margin-top:8px;opacity:.7;}
+#reset{margin-top:16px;padding:10px 24px;background:#fb923c;border:none;border-radius:8px;color:#000;font-weight:700;font-size:14px;cursor:pointer;display:none;}
+</style>
+</head>
+<body>
+<h1>🧗 9a Poblenou · Acceso</h1>
+<div id="reader"></div>
+<div id="result">
+  <div class="name" id="res-name"></div>
+  <div class="status" id="res-status"></div>
+  <div class="reason" id="res-reason"></div>
+</div>
+<button id="reset" onclick="resetScanner()">Escanear otro</button>
+
+<script>
+const WEBHOOK_URL = 'https://folletto-systems.app.n8n.cloud/webhook/qr-scanner';
+let scanner = null;
+let scanning = true;
+
+function startScanner(){
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:{width:250,height:250}},
+    onScan,
+    ()=>{}
+  );
+}
+
+async function onScan(qr_code){
+  if(!scanning) return;
+  scanning = false;
+
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({qr_code})
+    });
+    const data = await res.json();
+    showResult(data);
+  } catch(e) {
+    showResult({status:'denied', name:'Error', reason:'No se pudo conectar'});
+  }
+}
+
+function showResult(data){
+  const el = document.getElementById('result');
+  el.className = 'result ' + (data.status === 'granted' ? 'granted' : 'denied');
+  document.getElementById('res-name').textContent = data.name || 'Desconocido';
+  document.getElementById('res-status').textContent = data.status === 'granted' ? '✅ Acceso concedido' : '❌ Acceso denegado';
+  document.getElementById('res-reason').textContent = data.reason || '';
+  el.style.display = 'block';
+  document.getElementById('reset').style.display = 'inline-block';
+}
+
+function resetScanner(){
+  scanning = true;
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('reset').style.display = 'none';
+}
+
+startScanner();
+</script>
+</body>
+</html>
